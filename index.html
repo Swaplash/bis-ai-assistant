@@ -403,7 +403,7 @@
 
             // 3. Fetch from Backend
             try {
-                const response = await fetch('https://bis-ai-assistant-1-np6c.onrender.com/api/chat', {
+                const response = await fetch('https://bis-ai-assistant-1-np6c.onrender.com/api/query', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: query })
