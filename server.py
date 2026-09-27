@@ -1,14 +1,13 @@
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import chromadb
-from sentence_transformers import SentenceTransformer
 from groq import Groq
-import os
 
-app = FastAPI(title="BIS Assistant Prototype")
+app = FastAPI(title="BISync AI API")
 
-# CORS setup for local frontend communication
+# Enable CORS for GitHub Pages frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,72 +16,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# initialize local models and DB
-client = chromadb.PersistentClient(path="./chroma_db")
-collection = client.get_collection(name="bis_standards")
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+# Initialize Groq client
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-api_key = os.getenv("GROQ_API_KEY")
-if not api_key:
-    raise ValueError("GROQ_API_KEY environment variable is missing!")
-
-groq_client = Groq(api_key=api_key)
+# Initialize ChromaDB client using existing pre-indexed collection
+CHROMA_PATH = "chroma_db"
+db_client = chromadb.PersistentClient(path=CHROMA_PATH)
+collection = db_client.get_or_create_collection(name="bis_standards")
 
 class QueryRequest(BaseModel):
-    message: str
+    query: str
 
-@app.post("/api/chat")
-async def search_standards(request: QueryRequest):
-    # step 1. Vector Search
-    query_vector = embedder.encode([request.message]).tolist()
-    results = collection.query(query_embeddings=query_vector, n_results=3)
+@app.post("/api/query")
+async def query_documents(req: QueryRequest):
+    try:
+        # Chroma retrieves matching context directly from local database vector index
+        results = collection.query(query_texts=[req.query], n_results=3)
+        context = "\n".join(results["documents"][0]) if results["documents"] and results["documents"][0] else ""
 
-    chunks = results["documents"][0]
-    meta = results["metadatas"][0]
+        # Groq generates response based on retrieved BIS standards context
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful compliance assistant for the Bureau of Indian Standards. Answer strictly based on the provided context."
+                },
+                {
+                    "role": "user",
+                    "content": f"Context:\n{context}\n\nQuery: {req.query}"
+                }
+            ],
+            model="llama-3.3-70b-versatile",
+        )
+        answer = chat_completion.choices[0].message.content
+        return {"response": answer, "context": context}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # step 2. Inject metadata directly into the text stream
-    context_parts = []
-    extracted_sources = []
-    
-    for i in range(len(chunks)):  
-        is_code = meta[i]["is_code"]
-        page = meta[i]["page_number"]
-        
-        # Tag the chunk so the LLM reads the exact source and page
-        source_tag = f"--- [Document: {is_code}, Page: {page}] ---"
-        context_parts.append(f"{source_tag}\n{chunks[i]}")
-        
-        # Save for the JSON payload footer
-        extracted_sources.append({"is_code": is_code, "page": page})
-
-    context_text = "\n\n".join(context_parts)
-
-   
-    prompt = f"""
-    You are an expert BIS Compliance AI Assistant. 
-    Answer the user's question using ONLY the provided official standard context below. 
-    You must cite the exact Document and Page numbers provided in the context tags.
-    Format your response with a Markdown table where applicable.
-
-    Context:
-    {context_text}
-
-    User Question: {request.message}
-    """
-
-    #LLM generation
-    chat_completion = groq_client.chat.completions.create(
-        messages=[
-            {"role": "system", "content": "You are a precise technical compliance assistant. You never hallucinate data outside the context."},
-            {"role": "user", "content": prompt}
-        ],
-        model="openai/gpt-oss-20b", # Swapped to a standard reliable Groq model
-        temperature=0.1 # Low temperature for factual consistency
-    )
-    
-    return {
-        "status": "success",
-        "reply": chat_completion.choices[0].message.content,
-        "matched_sources": extracted_sources
-    }
-
+@app.get("/")
+def root():
+    return {"status": "online", "message": "BISync AI Backend is running."}
