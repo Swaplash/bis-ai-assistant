@@ -46,7 +46,7 @@ async def query_documents(req: QueryRequest):
                     "content": f"Context:\n{context}\n\nQuery: {req.query}"
                 }
             ],
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
         )
         answer = chat_completion.choices[0].message.content
         return {"response": answer, "context": context}
