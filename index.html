@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BISync AI - Indian Standards</title>
+    
+    <!-- Fonts: Inter for UI, Playfair Display for editorial emphasis -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Marked.js for rendering Markdown from the LLM -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        bis: {
+                            dark: '#1a0b2e',        // Refined darker navy/purple
+                            primary: '#6200EA',     // Main brand purple
+                            primaryHover: '#5000c2',
+                            lightBg: '#fbfafd',     // Warm subtle purple-tinted bg
+                            accent: '#FF9E00',       // Gold/orange accent
+                            accentSoft: 'rgba(255, 158, 0, 0.12)'
+                        }
+                    },
+                    boxShadow: {
+                        'nav': '0 4px 20px -2px rgba(26, 11, 46, 0.05)',
+                        'editorial': '0 10px 30px -5px rgba(26, 11, 46, 0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; opacity: 0; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .typing-indicator span { animation: blink 1.4s infinite both; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink {
+            0% { opacity: 0.2; }
+            20% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+
+        /* Abstract Light Streaks Background */
+        .light-streaks-bg {
+            position: absolute; top: 0; right: 0; bottom: 0; width: 50%;
+            overflow: hidden; z-index: -1;
+            mask-image: linear-gradient(to right, transparent, black 20%);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 20%);
+        }
+        .streak { position: absolute; top: -10%; bottom: -10%; filter: blur(60px); opacity: 0.5; }
+        .streak-1 { left: 20%; width: 20%; background: linear-gradient(180deg, rgba(255,158,0,0.3) 0%, rgba(98,0,234,0.4) 100%); }
+        .streak-2 { left: 50%; width: 30%; background: linear-gradient(180deg, #6200EA 20%, #1a0b2e 100%); }
+
+        /* Editorial Markdown styling for AI responses */
+        .prose table { width: 100%; border-collapse: collapse; margin-top: 1rem; margin-bottom: 1rem; font-size: 0.875rem; }
+        .prose th, .prose td { border: 1px solid #e9ecef; padding: 0.75rem; text-align: left; }
+        .prose th { background-color: #f8f7fc; font-weight: 600; color: #1a0b2e; }
+        .prose p { margin-bottom: 0.75rem; line-height: 1.6; color: #2d3748; }
+        .prose strong { font-weight: 600; color: #1a0b2e; }
+        .prose ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+        .prose h3 { font-family: 'Playfair Display', serif; font-size: 1.125rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; color: #1a0b2e; }
+    </style>
+</head>
+<body class="bg-[#fcfcfc] text-gray-900 font-sans antialiased min-h-screen flex flex-col relative overflow-x-hidden">
+
+    <!-- Minimalist Navbar -->
+    <nav class="fixed top-0 w-full bg-white/90 backdrop-blur-md border-b border-gray-100 z-50 transition-all">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-10">
+                <button onclick="switchView('home')" class="text-xl font-semibold tracking-tight text-bis-dark focus:outline-none flex items-center gap-2 group">
+                    <div class="w-2.5 h-2.5 rounded-full bg-bis-primary group-hover:scale-110 transition-transform"></div>
+                    <span class="tracking-widest font-bold">BISYNC</span>
+                </button>
+                <div class="hidden md:flex items-center gap-8">
+                    <button onclick="switchView('home')" class="nav-link text-sm font-medium text-gray-500 hover:text-bis-primary transition-colors" data-target="home">Home</button>
+                    <button onclick="switchView('standards')" class="nav-link text-sm font-medium text-gray-500 hover:text-bis-primary transition-colors" data-target="standards">Standards Catalog</button>
+                    <button onclick="switchView('services')" class="nav-link text-sm font-medium text-gray-500 hover:text-bis-primary transition-colors" data-target="services">Services</button>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button class="hidden md:block text-xs font-semibold text-gray-400 hover:text-gray-900 transition-colors uppercase tracking-wider">EN</button>
+                <button onclick="switchView('ai')" class="bg-bis-dark text-white px-5 py-2 text-sm font-medium rounded hover:bg-bis-primary transition-colors focus:outline-none shadow-sm flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-bis-accent"></span>
+                    BISync AI
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow pt-16 flex flex-col" id="main-content">
+        
+        <!-- VIEW: HOME -->
+        <div id="view-home" class="view-section relative max-w-7xl mx-auto px-6 md:px-12 w-full flex-grow flex items-center fade-in py-20">
+            <div class="light-streaks-bg hidden md:block">
+                <div class="streak streak-1"></div>
+                <div class="streak streak-2"></div>
+            </div>
+
+            <div class="max-w-2xl relative z-10">
+                <h1 class="text-5xl md:text-[5rem] font-medium tracking-tight text-gray-900 leading-[1.05] mb-6">
+                    Standards made <span class="font-serif italic font-medium text-bis-dark">simpler.</span><br/>
+                    Compliance made <span class="font-serif italic font-medium text-bis-primary">smarter.</span>
+                </h1>
+                <p class="text-lg text-gray-600 max-w-md mb-10 leading-relaxed font-light">
+                    AI-powered assistance for Indian Standards, BIS Services, and product compliance.
+                </p>
+                <div class="flex items-center gap-4">
+                    <button onclick="switchView('ai')" class="bg-bis-primary text-white px-7 py-3 text-sm font-medium rounded hover:bg-bis-primaryHover transition-colors shadow-sm">
+                        Start for free
+                    </button>
+                    <button onclick="switchView('standards')" class="bg-white text-gray-700 border border-gray-200 px-7 py-3 text-sm font-medium rounded hover:bg-gray-50 transition-colors">
+                        Explore Catalog
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: AI ASSISTANT -->
+        <div id="view-ai" class="view-section hidden w-full flex-grow flex fade-in bg-white h-[calc(100vh-4rem)]">
+            
+            <!-- Sidebar: Chat History -->
+            <div class="hidden md:flex flex-col w-64 border-r border-purple-50/80 bg-bis-lightBg flex-shrink-0 h-full p-4">
+                <button onclick="resetChat()" class="flex items-center justify-between w-full bg-white border border-gray-200/80 hover:border-bis-primary/40 px-4 py-2.5 rounded text-sm font-medium text-bis-dark transition-all mb-6 shadow-sm group">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-bis-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        New Analysis
+                    </span>
+                    <span class="text-xs text-gray-400 group-hover:text-bis-primary">+</span>
+                </button>
+                
+                <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3 px-2">Recent Queries</div>
+                <div class="flex flex-col gap-1 overflow-y-auto">
+                    <button class="text-left px-3 py-2 text-xs font-medium text-gray-700 hover:bg-white hover:text-bis-primary rounded transition-all truncate border border-transparent hover:border-purple-100">IS 1293 Earthing requirements</button>
+                    <button class="text-left px-3 py-2 text-xs font-medium text-gray-600 hover:bg-white hover:text-bis-primary rounded transition-all truncate border border-transparent hover:border-purple-100">CRS vs ISI Mark difference</button>
+                    <button class="text-left px-3 py-2 text-xs font-medium text-gray-600 hover:bg-white hover:text-bis-primary rounded transition-all truncate border border-transparent hover:border-purple-100">Hallmarking guidelines 2024</button>
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="flex-grow flex flex-col relative h-full max-w-4xl mx-auto w-full">
+                
+                <!-- Chat History Container -->
+                <div class="flex-grow overflow-y-auto px-6 pt-8 pb-36 relative flex flex-col" id="chat-container">
+                    
+                    <!-- Empty State (Centered initially) -->
+                    <div id="ai-empty-state" class="m-auto flex flex-col items-center justify-center text-center w-full max-w-xl pb-16">
+                        <div class="w-10 h-10 rounded-full bg-bis-dark text-white flex items-center justify-center font-serif italic text-lg mb-4 shadow-sm border-2 border-bis-accent/30">
+                            B
+                        </div>
+                        <h2 class="text-3xl font-medium tracking-tight text-bis-dark mb-2 font-serif">
+                            How can we <span class="italic text-bis-primary">assist</span> your compliance today?
+                        </h2>
+                        <p class="text-gray-500 mb-8 font-light text-sm leading-relaxed">
+                            Search clauses across Indian Standards, clarify certification schemes, or review mandatory testing frameworks.
+                        </p>
+                        
+                        <div class="flex flex-wrap justify-center gap-2 mb-4 w-full">
+                            <button onclick="fillQuery('What are the earthing requirements in IS 1293?')" class="text-xs text-gray-700 bg-white border border-gray-200 hover:border-bis-primary/40 hover:bg-bis-lightBg rounded-full px-4 py-2 transition-all shadow-sm">IS 1293 Earthing Guidelines</button>
+                            <button onclick="fillQuery('Explain the CRS scheme for imported laptops')" class="text-xs text-gray-700 bg-white border border-gray-200 hover:border-bis-primary/40 hover:bg-bis-lightBg rounded-full px-4 py-2 transition-all shadow-sm">CRS Scheme for IT Goods</button>
+                            <button onclick="fillQuery('What does Clause 5 in IS 2062 state?')" class="text-xs text-gray-700 bg-white border border-gray-200 hover:border-bis-primary/40 hover:bg-bis-lightBg rounded-full px-4 py-2 transition-all shadow-sm">IS 2062 Structural Steel Clause 5</button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Chat Messages will go here -->
+                    <div class="w-full flex flex-col gap-8 hidden" id="chat-history"></div>
+                </div>
+
+                <!-- Sticky Input Area -->
+                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pb-6 px-6">
+                    <div class="relative max-w-3xl mx-auto rounded-lg border border-gray-200/90 bg-white flex items-center p-1.5 focus-within:border-bis-primary focus-within:ring-2 focus-within:ring-bis-primary/10 transition-all shadow-sm">
+                        <input type="text" id="ai-input" 
+                            class="w-full py-2.5 pl-4 pr-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none bg-transparent font-sans" 
+                            placeholder="Ask BISync AI about technical codes, procedures, or schemes..."
+                            onkeypress="handleAiSubmit(event)">
+                        <button onclick="submitAiQuery()" id="send-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-white bg-bis-dark hover:bg-bis-primary transition-colors p-2 rounded focus:outline-none">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </button>
+                    </div>
+                    <div class="text-center mt-2">
+                        <span class="text-[10px] text-gray-400 tracking-wide">BISync AI standard outputs should be cross-verified with official Bureau of Indian Standards gazette publications.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: STANDARDS -->
+        <div id="view-standards" class="view-section hidden max-w-6xl mx-auto px-6 w-full fade-in py-10 flex-grow">
+            <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-100 pb-6">
+                <div>
+                    <h2 class="text-3xl font-medium tracking-tight text-bis-dark">Standards <span class="font-serif italic text-bis-primary">Catalog</span></h2>
+                    <p class="text-sm text-gray-500 mt-1 font-light">Search and inspect official Bureau of Indian Standards specifications.</p>
+                </div>
+                <div class="w-full md:w-80">
+                    <div class="relative">
+                        <svg class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <input type="text" id="standard-search" placeholder="Search IS code, title, or sector..." 
+                            class="w-full border border-gray-200 rounded-md pl-10 pr-3 py-2 text-sm focus:outline-none focus:border-bis-primary focus:ring-1 focus:ring-bis-primary transition-colors">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 border-t border-l border-gray-200/60 bg-gray-50/50 rounded-lg overflow-hidden shadow-sm" id="standards-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+                <!-- Data populated by JS -->
+            </div>
+        </div>
+
+        <!-- VIEW: SERVICES -->
+        <div id="view-services" class="view-section hidden max-w-6xl mx-auto px-6 w-full fade-in py-10 flex-grow">
+            <div class="border-b border-gray-100 pb-6 mb-8">
+                <h2 class="text-3xl font-medium tracking-tight text-bis-dark">BIS Compliance <span class="font-serif italic text-bis-primary">Services</span></h2>
+                <p class="text-sm text-gray-500 mt-1 font-light">Conformity assessment, hallmarking scheme regulations, and laboratory recognition framework.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Service Cards - Editorial approach -->
+                <div class="bg-white p-8 border border-gray-200/80 rounded-lg border-t-2 hover:border-t-bis-primary hover:shadow-editorial transition-all group cursor-pointer flex flex-col">
+                    <div class="text-[10px] font-semibold text-bis-primary uppercase tracking-widest mb-1">Scheme I</div>
+                    <h3 class="text-xl font-medium text-bis-dark group-hover:text-bis-primary transition-colors">Product Certification (ISI Mark)</h3>
+                    <p class="text-sm text-gray-600 mt-3 font-light leading-relaxed flex-grow">Grants licenses to domestic & international manufacturers to use the Standard ISI Mark on products conforming to Indian Technical Standards.</p>
+                    <div class="mt-6 text-xs font-semibold text-bis-dark flex items-center gap-1 group-hover:text-bis-primary">
+                        <span>Learn process details</span>
+                        <span>&rarr;</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-8 border border-gray-200/80 rounded-lg border-t-2 hover:border-t-bis-primary hover:shadow-editorial transition-all group cursor-pointer flex flex-col">
+                    <div class="text-[10px] font-semibold text-bis-accent uppercase tracking-widest mb-1">Scheme II</div>
+                    <h3 class="text-xl font-medium text-bis-dark group-hover:text-bis-primary transition-colors">Compulsory Registration (CRS)</h3>
+                    <p class="text-sm text-gray-600 mt-3 font-light leading-relaxed flex-grow">Mandatory registration order scheme for electronics, IT goods, and solar PVs ensuring compliance before market entry.</p>
+                    <div class="mt-6 text-xs font-semibold text-bis-dark flex items-center gap-1 group-hover:text-bis-primary">
+                        <span>View covered products</span>
+                        <span>&rarr;</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-8 border border-gray-200/80 rounded-lg border-t-2 hover:border-t-bis-primary hover:shadow-editorial transition-all group cursor-pointer flex flex-col">
+                    <div class="text-[10px] font-semibold text-amber-600 uppercase tracking-widest mb-1">Precious Metals</div>
+                    <h3 class="text-xl font-medium text-bis-dark group-hover:text-bis-primary transition-colors">Hallmarking Scheme</h3>
+                    <p class="text-sm text-gray-600 mt-3 font-light leading-relaxed flex-grow">Third-party assessment and official hallmarking for Gold and Silver artifacts to protect consumers against purity variations.</p>
+                    <div class="mt-6 text-xs font-semibold text-bis-dark flex items-center gap-1 group-hover:text-bis-primary">
+                        <span>Check guidelines</span>
+                        <span>&rarr;</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-8 border border-gray-200/80 rounded-lg border-t-2 hover:border-t-bis-primary hover:shadow-editorial transition-all group cursor-pointer flex flex-col">
+                    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Testing Infrastructure</div>
+                    <h3 class="text-xl font-medium text-bis-dark group-hover:text-bis-primary transition-colors">Laboratory Recognition (LARS)</h3>
+                    <p class="text-sm text-gray-600 mt-3 font-light leading-relaxed flex-grow">Formal audit and recognition of independent testing laboratories supporting conformity assessment activities.</p>
+                    <div class="mt-6 text-xs font-semibold text-bis-dark flex items-center gap-1 group-hover:text-bis-primary">
+                        <span>Find accredited labs</span>
+                        <span>&rarr;</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Data for Standards View
+        const standardsData = [
+            { num: 'IS 1293 : 2019', title: 'Plugs and Socket-Outlets up to 250 Volts', cat: 'Electrical', status: 'Mandatory' },
+            { num: 'IS 13252 (Part 1) : 2010', title: 'Information Technology Equipment - Safety', cat: 'IT Goods', status: 'CRS' },
+            { num: 'IS 456 : 2000', title: 'Plain and Reinforced Concrete Code of Practice', cat: 'Civil', status: 'Active' },
+            { num: 'IS 10500 : 2012', title: 'Drinking Water Specifications & Testing', cat: 'Chemicals', status: 'Mandatory' },
+            { num: 'IS 302 (Part 1) : 2008', title: 'Safety of Household Electrical Appliances', cat: 'Electrical', status: 'Active' },
+            { num: 'IS 16046 (Part 2) : 2018', title: 'Secondary Cells & Lithium Batteries', cat: 'Electrical', status: 'CRS' }
+        ];
+
+        let chatStarted = false;
+
+        // View Management
+        function switchView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            const targetView = document.getElementById(`view-${viewId}`);
+            targetView.classList.remove('hidden');
+            
+            // Nav active states
+            document.querySelectorAll('.nav-link').forEach(el => {
+                if(el.dataset.target === viewId) {
+                    el.classList.replace('text-gray-500', 'text-bis-primary');
+                } else {
+                    el.classList.replace('text-bis-primary', 'text-gray-500');
+                }
+            });
+
+            if (viewId === 'standards') renderStandards();
+            if (viewId === 'ai' && !chatStarted) {
+                document.getElementById('ai-input').focus();
+            }
+            window.scrollTo(0,0);
+        }
+
+        // Render Standards Grid with Editorial Status Badges
+        function renderStandards() {
+            const grid = document.getElementById('standards-grid');
+            grid.innerHTML = standardsData.map(s => {
+                let badgeStyle = "bg-gray-100 text-gray-700 border-gray-200";
+                if (s.status === 'Mandatory') badgeStyle = "bg-amber-50 text-amber-800 border-amber-200/80 font-medium";
+                if (s.status === 'CRS') badgeStyle = "bg-purple-50 text-bis-primary border-purple-200/80 font-medium";
+                if (s.status === 'Active') badgeStyle = "bg-emerald-50 text-emerald-800 border-emerald-200/80";
+
+                return `
+                <div class="border-b border-r border-gray-200/60 p-6 bg-white flex flex-col justify-between hover:bg-bis-lightBg/50 transition-colors group cursor-pointer">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">${s.cat}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded border ${badgeStyle}">${s.status}</span>
+                        </div>
+                        <h3 class="text-base font-semibold text-bis-dark group-hover:text-bis-primary transition-colors mb-1.5">${s.num}</h3>
+                        <p class="text-xs text-gray-600 font-light leading-relaxed line-clamp-2">${s.title}</p>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // AI Chat Interaction
+        function fillQuery(text) {
+            document.getElementById('ai-input').value = text;
+            submitAiQuery();
+        }
+
+        function handleAiSubmit(e) {
+            if (e.key === 'Enter') submitAiQuery();
+        }
+
+        function resetChat() {
+            chatStarted = false;
+            document.getElementById('chat-history').innerHTML = '';
+            document.getElementById('chat-history').classList.add('hidden');
+            document.getElementById('ai-empty-state').classList.remove('hidden');
+            document.getElementById('ai-input').value = '';
+            document.getElementById('ai-input').focus();
+        }
+
+        // Setup Markdown Parser Options
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        async function submitAiQuery() {
+            const inputEl = document.getElementById('ai-input');
+            const query = inputEl.value.trim();
+            if (!query) return;
+
+            // Transition Layout
+            if (!chatStarted) {
+                chatStarted = true;
+                document.getElementById('ai-empty-state').classList.add('hidden');
+                document.getElementById('chat-history').classList.remove('hidden');
+                document.getElementById('chat-container').classList.remove('justify-center');
+            }
+
+            const chatHistory = document.getElementById('chat-history');
+            inputEl.value = '';
+            inputEl.disabled = true;
+
+            // 1. Render User Message
+            chatHistory.insertAdjacentHTML('beforeend', `
+                <div class="w-full flex justify-end fade-in">
+                    <div class="max-w-[80%] bg-bis-dark text-white px-5 py-3 rounded-lg text-sm font-sans shadow-sm">
+                        ${query}
+                    </div>
+                </div>
+            `);
+            scrollToBottom();
+
+            // 2. Render Loading State
+            const typingId = 'typing-' + Date.now();
+            chatHistory.insertAdjacentHTML('beforeend', `
+                <div id="${typingId}" class="w-full flex justify-start fade-in">
+                    <div class="flex items-center gap-3">
+                        <div class="w-6 h-6 rounded-full bg-bis-dark text-white flex items-center justify-center font-serif italic text-xs border border-bis-accent/40">B</div>
+                        <p class="text-xs text-gray-500 font-medium typing-indicator">Searching BIS regulatory database<span>.</span><span>.</span><span>.</span></p>
+                    </div>
+                </div>
+            `);
+            scrollToBottom();
+
+            // 3. Fetch from Backend
+            try {
+                const response = await fetch('http://localhost:8000/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: query })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                renderAiResponse(typingId, data.reply, data.matched_sources);
+
+            } catch (error) {
+                console.error("Backend fetch failed, falling back to mock response.", error);
+                
+                // Fallback Mock Response
+                setTimeout(() => {
+                    const mockReply = `According to standard compliance specifications:\n\n### Requirements Overview\n| Parameter | Requirement |\n|---|---|\n| Governing Code | IS 1293 : 2019 |\n| Enforcement | Mandatory ISI Mark |\n\nFor additional clause references, inspect page citations below.`;
+                    const mockSources = [{ is_code: "IS_1293", page: 14 }, { is_code: "IS_1293", page: 15 }];
+                    renderAiResponse(typingId, mockReply, mockSources);
+                }, 1000);
+            }
+        }
+
+        function renderAiResponse(typingId, markdownText, sources) {
+            document.getElementById(typingId).remove();
+            
+            // Parse Markdown
+            const htmlContent = marked.parse(markdownText);
+            
+            // Generate Citation HTML safely
+            let citationsHtml = '';
+            if (sources && sources.length > 0) {
+                const uniqueSources = [];
+                const seen = new Set();
+                sources.forEach(s => {
+                    const key = `${s.is_code}-${s.page}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueSources.push(s);
+                    }
+                });
+
+                const citationCards = uniqueSources.map(src => `
+                    <div class="border-l-2 border-bis-accent bg-amber-50/30 rounded-r px-3 py-2 text-xs flex items-center justify-between hover:bg-amber-50/70 transition-colors border-y border-r border-amber-100/80">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-bis-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span class="font-semibold text-bis-dark">${src.is_code.replace(/_/g, ' ')}</span>
+                            <span class="text-gray-300">&bull;</span>
+                            <span class="text-gray-600">Page ${src.page}</span>
+                        </div>
+                        <button class="text-bis-primary text-[11px] font-medium hover:underline">View Extract</button>
+                    </div>
+                `).join('');
+
+                citationsHtml = `
+                    <div class="mt-4 border-t border-gray-100 pt-3">
+                        <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-2">Sources Cited</span>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            ${citationCards}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Append Final Response
+            document.getElementById('chat-history').insertAdjacentHTML('beforeend', `
+                <div class="w-full flex justify-start fade-in">
+                    <div class="flex gap-3 max-w-full sm:max-w-[90%]">
+                        <div class="w-6 h-6 rounded-full bg-bis-dark text-white flex-shrink-0 flex items-center justify-center font-serif italic text-xs mt-1 shadow-sm border border-bis-accent/30">B</div>
+                        <div class="flex-grow min-w-0">
+                            <div class="prose prose-sm max-w-none">
+                                ${htmlContent}
+                            </div>
+                            ${citationsHtml}
+                            <div class="mt-3 flex items-center gap-3">
+                                <button class="text-[11px] font-medium text-gray-400 hover:text-bis-primary transition-colors flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> Copy Response
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+
+            document.getElementById('ai-input').disabled = false;
+            document.getElementById('ai-input').focus();
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Init
+        window.onload = () => switchView('home');
+    </script>
+</body>
+</html>
